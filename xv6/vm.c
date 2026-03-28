@@ -385,6 +385,63 @@ copyout(pde_t *pgdir, uint va, void *p, uint len)
   return 0;
 }
 
+
+
+// Part C: Remove write permissions
+int
+mprotect(void *addr, int len)
+{
+  pte_t *pte;
+  uint a, last;
+
+  //  addr must be page aligned and len > 0 
+  if((uint)addr % PGSIZE != 0 || len <= 0)
+    return -1;
+
+  a = (uint)addr;
+  last = PGROUNDDOWN(a + len - 1);
+
+  // pages must exist 
+  for(; a <= last; a += PGSIZE){
+    if((pte = walkpgdir(myproc()->pgdir, (void*)a, 0)) == 0)
+      return -1; 
+    if(!(*pte & PTE_P))
+      return -1;
+
+    *pte &= ~PTE_W; // Clear the write flag [cite: 49]
+  }
+
+  // Flush TLB using lcr3 
+  lcr3(V2P(myproc()->pgdir)); 
+  return 0;
+}
+
+// Part D: Restore write permissions
+int
+munprotect(void *addr, int len)
+{
+  pte_t *pte;
+  uint a, last;
+
+  if((uint)addr % PGSIZE != 0 || len <= 0)
+    return -1;
+
+  a = (uint)addr;
+  last = PGROUNDDOWN(a + len - 1);
+
+  for(; a <= last; a += PGSIZE){
+    if((pte = walkpgdir(myproc()->pgdir, (void*)a, 0)) == 0)
+      return -1;
+    if(!(*pte & PTE_P))
+      return -1;
+
+    *pte |= PTE_W; // Set the write flag 
+  }
+
+  lcr3(V2P(myproc()->pgdir)); 
+  return 0;
+}
+
 //PAGEBREAK!
 // Blank page.
 //PAGEBREAK!
