@@ -78,6 +78,30 @@ trap(struct trapframe *tf)
     lapiceoi();
     break;
 
+
+  case T_PGFLT:
+      // Use rcr2() to get the faulting virtual address 
+      uint fault_addr = rcr2();
+
+      // Only handle if fault happened in user mode
+      if((tf->cs & 3) == DPL_USER){
+        // Print diagnostic
+        cprintf("pid %d %s: trap %d err %d on cpu %d "
+                "eip 0x%x addr 0x%x--kill proc\n",
+                myproc()->pid, myproc()->name, tf->trapno, 
+                tf->err, cpuid(), tf->eip, fault_addr);
+
+        // If VA < PGSIZE, it is likely a NULL dereference 
+        if(fault_addr < PGSIZE) {
+          cprintf("Likely NULL pointer dereference.\n");
+        }
+
+        // Kill the offending process 
+        myproc()->killed = 1;
+        break;
+      }  
+
+
   //PAGEBREAK: 13
   default:
     if(myproc() == 0 || (tf->cs&3) == 0){
